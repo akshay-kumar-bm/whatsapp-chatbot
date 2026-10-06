@@ -1,155 +1,49 @@
-# WhatsApp Business Chatbot 🤖
+# WhatsApp Business Chatbot
 
-A powerful WhatsApp chatbot solution that helps business owners automate customer interactions by leveraging AI to handle product inquiries, FAQs, and customer support.
+An AI customer-support chatbot for small businesses: it answers product and FAQ questions on WhatsApp (via Twilio), with a Flask admin portal and an analytics dashboard.
 
-## Features
+## What it does
+A business owner logs in to a web portal, enters business info, products and FAQs, and the bot answers customers' WhatsApp messages using a Groq-hosted Llama model grounded on that data through a Chroma vector store. Conversations are logged and summarised in a metrics dashboard.
 
-### 1. Automated Customer Service
-- 24/7 automated responses to customer inquiries
-- Natural language processing for understanding customer intent
-- Personalized conversations based on customer history
-- Multi-language support for global customers
+## Features (as implemented)
+- Twilio webhook `/twilio/receiveMessage` that replies to incoming WhatsApp messages
+- `ProductChatbot` (LangChain + `ChatGroq`, model `llama-3.1-70b-versatile`, conversation buffer memory) with a prompt covering knowledge-base answers and product recommendations
+- ChromaDB vector store with HuggingFace embeddings (`vector_store.py`) for products and FAQs
+- Admin portal: register/login (Flask-Login, bcrypt-hashed passwords), CRUD routes for business info, products and FAQs, backed by JSON files
+- Chat-history logging and `/chat_history/<user_id>`
+- `/metrics_dashboard` + `/get_metrics` with keyword-based sentiment counts and conversation stats
+- Optional Streamlit front end (`streamlit_frontend.py`)
 
-### 2. Product Management
-- Easy product catalog management through web interface
-- Real-time inventory updates
-- Product recommendation engine
-- Detailed product information storage and retrieval
-- Search functionality for products
+## Tech stack
+Flask, Flask-Login, Flask-Bcrypt, Twilio, LangChain, Groq, ChromaDB, HuggingFace embeddings (llama-index), Streamlit, vanilla HTML/CSS/JS.
 
-### 3. FAQ Management
-- Dynamic FAQ database management
-- Automated responses to common questions
-- Easy addition and updating of FAQs through web interface
-- Smart matching of customer questions to FAQ database
-
-### 4. Business Information Management
-- Customizable business profile
-- Operating hours
-- Contact information
-- Location details
-- Service descriptions
-
-### 5. User Authentication & Security
-- Secure login system for business owners
-- Password encryption using bcrypt
-- Session management
-- User registration system
-- Protected admin routes
-
-### 6. Analytics Dashboard
-- Real-time conversation metrics
-- Customer satisfaction scores
-- Response time analytics
-- Conversion tracking
-- Sentiment analysis
-- Visual data representation
-  - Conversation trends
-  - Query resolution rates
-  - Customer satisfaction trends
-
-### 7. Chat History & Management
-- Complete conversation logging
-- Searchable chat history
-- User interaction tracking
-- Message timestamp recording
-- Conversation context maintenance
-
-### 8. Vector Store Integration
-- Efficient storage and retrieval of product information
-- Semantic search capabilities
-- FAQ matching using embeddings
-- Improved response accuracy
-
-### 9. Integration with External Services
-- Twilio WhatsApp Business API integration
-- Groq AI integration for natural language processing
-- Streamlit integration for additional visualization
-
-## Technical Stack
-
-### Backend
-- Flask (Python web framework)
-- LangChain for LLM integration
-- ChromaDB for vector storage
-- SQLite for data persistence
-- Bcrypt for password hashing
-
-### Frontend
-- HTML/CSS/JavaScript
-- Streamlit for analytics visualization
-- Bootstrap for responsive design
-
-### AI/ML
-- Groq LLM for natural language processing
-- Custom embedding model (all-MiniLM-L6-v2)
-- Sentiment analysis
-- Product recommendation system
-
-### External APIs
-- Twilio WhatsApp Business API
-- Groq API
-
-## Setup & Installation
-
-1. Clone the repository
-```bash
-git clone [repository-url]
+## Flow
+```
+WhatsApp -> Twilio -> /twilio/receiveMessage (Flask) -> ProductChatbot -> Chroma retrieval + Groq LLM
+        <- Twilio reply <-                              chat_history.json -> /metrics_dashboard
 ```
 
-2. Install required packages
+## Setup
 ```bash
-pip install -r requirements.txt
+pip install -r requirments.txt
+```
+Environment variables (names read in code): `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `GROQ_API_KEY` (put them in a git-ignored `.env`).
+```bash
+python app.py        # Flask on port 5000, debug mode
+```
+Expose the server (e.g. with ngrok) and set the Twilio WhatsApp sandbox webhook to `/twilio/receiveMessage`.
+
+## Structure
+```
+app.py            routes, auth, metrics, Twilio webhook
+chatbot.py        LLM chatbot        vector_store.py   Chroma store
+tools.py          chat-history helpers   streamlit_frontend.py
+templates/ static/                  business_info.json FAQ.json inventory.json users.json
 ```
 
-3. Set up environment variables
-```bash
-TWILIO_ACCOUNT_SID=your_sid
-TWILIO_AUTH_TOKEN=your_token
-TWILIO_PHONE_NUMBER=your_whatsapp_number
-GROQ_API_KEY=your_groq_api_key
-```
-
-4. Initialize the database
-```bash
-python init_db.py
-```
-
-5. Run the application
-```bash
-python app.py
-```
-
-## Usage
-
-1. **Business Owner Portal**
-   - Register/Login at `/login`
-   - Add/update business information
-   - Manage product catalog
-   - Update FAQs
-   - View analytics dashboard
-
-2. **WhatsApp Integration**
-   - Connect your business WhatsApp number through Twilio
-   - Test the chatbot using the provided WhatsApp number
-   - Monitor conversations in real-time
-
-3. **Analytics**
-   - Access the metrics dashboard at `/metrics_dashboard`
-   - View conversation analytics
-   - Track customer satisfaction
-   - Monitor response times
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-
-## Demo Video
-
-![Video showing Demo whatsapp chatbot](preview.gif)
-[https://www.youtube.com/watch?v=OMXWGkL5X_o](url)
+## Limitations
+- Data is stored in JSON files, not a database; no `init_db.py` exists despite older README notes.
+- Sentiment analysis is keyword-based; "multi-language", "satisfaction" and "conversion" claims in the old README are not clearly backed by code.
+- `streamlit_frontend.py` imports names not defined in `chatbot.py` and appears stale.
+- Code references "FlowerShopVectorStore" from an earlier flower-shop version; requirements file is misspelled and unpinned.
+- Repo contains committed runtime data and large binaries (see verdict).
